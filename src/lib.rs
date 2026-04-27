@@ -15,6 +15,7 @@ pub struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     is_surface_configured: bool,
+    render_pipeline: wgpu::RenderPipeline,
     window: Arc<Window>,
 }
 
@@ -83,12 +84,60 @@ impl State {
             view_formats: vec![],
         };
 
+        // Pipeline setup, base it off shader.wgsl file
+        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                immediate_size: 0,
+            });
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            // This tells wgpu to assemble triangles from the vertices
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview_mask: None,
+            cache: None,
+        });
+
         Ok(Self {
             surface,
             device,
             queue,
             config,
             is_surface_configured: false,
+            render_pipeline: render_pipeline,
             window,
         })
     }
@@ -109,14 +158,14 @@ impl State {
     fn render(&mut self) -> anyhow::Result<()> {
         // This delivers WindowEvent::requestredraw to window manager which then
         // runs the window_event function I defined which then calls this render, for infinite loop
-        self.window.request_redraw();
+        //self.window.request_redraw();
 
         // We can't render unless the surface is configured
         if !self.is_surface_configured {
             return Ok(());
         }
 
-        // We need texture that we will render to
+        // We need texture that we will render to, exit if we can't get surface
         let output = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
             wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => {
@@ -150,7 +199,7 @@ impl State {
             });
 
         // Use encoder to send command to render a colored screen
-        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
@@ -171,6 +220,11 @@ impl State {
             timestamp_writes: None,
             multiview_mask: None,
         });
+
+        // Set the pipeline to render and tell wgpu to draw something with 3 vertices and 1 instance
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.draw(0..3, 0..1);
+
         drop(render_pass);
 
         self.queue.submit(iter::once(encoder.finish()));
@@ -228,10 +282,10 @@ impl ApplicationHandler<State> for App {
             WindowEvent::Resized(size) => state.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
                 state.update();
+                println!("Rerendering window and graphics");
                 match state.render() {
                     Ok(_) => {}
                     Err(e) => {
-                        // Log the error and exit gracefully
                         log::error!("{e}");
                         event_loop.exit();
                     }
