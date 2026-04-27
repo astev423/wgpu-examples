@@ -43,16 +43,52 @@ impl Vertex {
 // These will be turned into a single buffer that GPU can loop over
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [0.0, 0.5, 0.0],
+        position: [0.0, 0.6, 0.0],
         color: [1.0, 0.0, 0.0],
     },
     Vertex {
-        position: [-0.5, -0.5, 0.0],
+        position: [-0.2, 0.3, 0.0],
         color: [0.0, 1.0, 0.0],
     },
     Vertex {
-        position: [0.5, -0.5, 0.0],
+        position: [0.2, 0.3, 0.0],
         color: [0.0, 0.0, 1.0],
+    },
+    Vertex {
+        position: [0.0, 0.8, 0.5],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.2, 0.5, 0.0],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [0.2, 0.5, 0.0],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.05, 0.3, 0.0],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.05, -0.8, 0.0],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [0.05, 0.3, 0.0],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [0.05, 0.3, 0.0],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.05, -0.8, 0.0],
+        color: [0.0, 0.0, 0.0],
+    },
+    Vertex {
+        position: [0.05, -0.8, 0.0],
+        color: [0.0, 0.0, 0.0],
     },
 ];
 
@@ -277,6 +313,7 @@ impl State {
         // Set the pipeline to render and tell wgpu to draw something with 3 vertices and 1 instance
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        // If we were using index buffers we would use draw_indexed instead of draw here
         render_pass.draw(0..self.num_vertices, 0..1);
 
         drop(render_pass);
