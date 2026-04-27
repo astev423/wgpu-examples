@@ -9,6 +9,7 @@ use winit::{
     window::Window,
 };
 
+// Apply C alignment rules, prevent compiler from rearranging fields
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -17,11 +18,13 @@ struct Vertex {
 }
 
 impl Vertex {
+    // This tells GPU how to handle the vertices
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
+                // At byte offset 0, read a f32 by 3 and store it in shader location 0
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
