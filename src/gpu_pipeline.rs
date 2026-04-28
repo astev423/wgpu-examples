@@ -15,6 +15,7 @@ pub struct State {
     vertex_buffer: wgpu::Buffer,
     num_vertices: u32,
     diffuse_bind_group: wgpu::BindGroup,
+    window: Arc<Window>,
 }
 
 impl State {
@@ -248,6 +249,7 @@ impl State {
             vertex_buffer,
             num_vertices: VERTICES.len() as u32,
             diffuse_bind_group,
+            window,
         })
     }
 
@@ -340,6 +342,8 @@ impl State {
 
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
+
+        self.window.request_redraw();
 
         Ok(())
     }

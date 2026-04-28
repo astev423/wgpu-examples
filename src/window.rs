@@ -1,35 +1,66 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use winit::{
-    application::ApplicationHandler, event::*, event_loop::ActiveEventLoop, keyboard::PhysicalKey,
+    application::ApplicationHandler,
+    event::*,
+    event_loop::{ActiveEventLoop, ControlFlow},
+    keyboard::PhysicalKey,
 };
 
 use crate::gpu_pipeline::State;
 
+const FPS: u64 = 3;
+const FRAME_DURATION: Duration = Duration::from_nanos(1_000_000_000 / FPS);
+
 pub struct Window {
     graphics: Option<State>,
+    next_frame_time: Instant,
+    window: Option<Arc<winit::window::Window>>,
 }
 
 impl Window {
     pub fn new() -> Self {
-        Self { graphics: None }
+        Self {
+            graphics: None,
+            next_frame_time: Instant::now(),
+            window: None,
+        }
     }
 }
 
 impl ApplicationHandler<State> for Window {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        println!("Resumed window");
-        #[allow(unused_mut)]
-        let mut window_attributes = winit::window::Window::default_attributes();
+        println!("resumed");
+        let window = Arc::new(
+            event_loop
+                .create_window(winit::window::Window::default_attributes())
+                .unwrap(),
+        );
 
-        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        self.window = Some(window.clone());
+        self.graphics = Some(pollster::block_on(State::new(window.clone())).unwrap());
 
-        self.graphics = Some(pollster::block_on(State::new(window)).unwrap());
+        self.next_frame_time = Instant::now();
+        window.request_redraw();
     }
 
-    #[allow(unused_mut)]
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: State) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: State) {
         self.graphics = Some(event);
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let now = Instant::now();
+
+        if now >= self.next_frame_time {
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+        } else {
+            event_loop.set_control_flow(ControlFlow::WaitUntil(self.next_frame_time));
+        }
     }
 
     fn window_event(
@@ -38,23 +69,30 @@ impl ApplicationHandler<State> for Window {
         _window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
-        let Some(ref mut graphics) = self.graphics else {
+        let Some(graphics) = self.graphics.as_mut() else {
             return;
         };
 
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => graphics.resize(size.width, size.height),
+            WindowEvent::Resized(size) => {
+                graphics.resize(size.width, size.height);
+            }
             WindowEvent::RedrawRequested => {
-                graphics.update();
-                println!("Rerendering window and graphics");
-                match graphics.render() {
-                    Ok(_) => {}
-                    Err(e) => {
-                        log::error!("{e}");
-                        event_loop.exit();
-                    }
+                if Instant::now() < self.next_frame_time {
+                    return;
                 }
+
+                graphics.update();
+                println!("rerender");
+
+                if let Err(e) = graphics.render() {
+                    log::error!("{e}");
+                    event_loop.exit();
+                    return;
+                }
+
+                self.next_frame_time = Instant::now() + FRAME_DURATION;
             }
             WindowEvent::MouseInput { state, button, .. } => match (button, state.is_pressed()) {
                 (MouseButton::Left, true) => {}
@@ -69,7 +107,9 @@ impl ApplicationHandler<State> for Window {
                         ..
                     },
                 ..
-            } => graphics.handle_key(event_loop, code, key_state.is_pressed()),
+            } => {
+                graphics.handle_key(event_loop, code, key_state.is_pressed());
+            }
             _ => {}
         }
     }
