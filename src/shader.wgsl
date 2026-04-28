@@ -4,7 +4,6 @@
 // run the fragment shader (programmable)
 // WGSL programs need an entry point. An entry point is designated by either @vertex, @fragment or @compute
 
-/*
 struct VertexInput {
     // Whatever is sent to shader location 0 is pos and 1 color
     @location(0) position: vec3<f32>,
@@ -39,8 +38,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let y_normalized = in.clip_position[1] / 1000.0;
     return vec4<f32>(x_normalized, y_normalized, 1.0, 1.0);
 }
-*/
 
+
+// TEXTURE SHADER
+
+/*
 // Vertex shader
 
 struct VertexInput {
@@ -73,3 +75,5 @@ var s_diffuse: sampler;
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return textureSample(t_diffuse, s_diffuse, in.tex_coords);
 }
+
+*/
