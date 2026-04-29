@@ -17,8 +17,16 @@ struct VertexOutput {
 };
 
 // Var uniform lets gpu know this is in read only access space and is global
+// In wgpu, every @binding declared in your shader must have a corresponding entry in
+// the BindGroupLayout and BindGroup. Layout defines interface, bind group defines data
+struct RandomColors {
+    r: f32,
+    g: f32,
+    b: f32,
+};
+
 @group(0) @binding(0)
-var<uniform> random_num_between_zero_and_one_1: f32;
+var<uniform> colors: RandomColors;
 
 // Vertex shader runs for each vertex we give in the draw, every 3 vertices it makes a triangle
 // as we defined in the pipeline
@@ -39,8 +47,5 @@ fn vs_main(
 // is then interpolated here for each fragment/pixel
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let blue_channel = random_num_between_zero_and_one_1;
-    let red_channel = abs(-random_num_between_zero_and_one_1);
-
-    return vec4<f32>(red_channel, 0.0, blue_channel, 1.0);
+    return vec4<f32>(colors.r, colors.g, colors.b, 1.0);
 }

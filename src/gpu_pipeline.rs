@@ -88,7 +88,7 @@ impl State {
 
         let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("time_buffer"),
-            size: 4,
+            size: 12,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -96,7 +96,7 @@ impl State {
             label: Some("time_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -256,11 +256,17 @@ impl State {
             multiview_mask: None,
         });
 
-        let random_num_between_0_and_1: f32 = random();
+        let random_num_between_zero_and_one_1: f32 = random();
+        let random_num_between_zero_and_one_2: f32 = random();
+        let random_num_between_zero_and_one_3: f32 = random();
         self.queue.write_buffer(
             &self.uniform_buffer,
             0,
-            bytemuck::cast_slice(&[random_num_between_0_and_1]),
+            bytemuck::cast_slice(&[
+                random_num_between_zero_and_one_1,
+                random_num_between_zero_and_one_2,
+                random_num_between_zero_and_one_3,
+            ]),
         );
 
         // Set the pipeline to render and tell wgpu to draw something with 3 vertices and 1 instance
