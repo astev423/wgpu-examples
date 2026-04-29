@@ -16,6 +16,10 @@ struct VertexOutput {
     @location(0) color: vec3<f32>,
 };
 
+// Var uniform lets gpu know this is in read only access space and is global
+@group(0) @binding(0)
+var<uniform> random_num_between_zero_and_one_1: f32;
+
 // Vertex shader runs for each vertex we give in the draw, every 3 vertices it makes a triangle
 // as we defined in the pipeline
 @vertex
@@ -31,49 +35,12 @@ fn vs_main(
 }
 
 // Fragment shader runs for each pixel, GPU already decided color for pixel by interpolation,
-// but we get to decide final color here
+// but we get to decide final color here, each user defined value in the vertex struct
+// is then interpolated here for each fragment/pixel
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let x_normalized = in.clip_position[0] / 1000.0;
-    let y_normalized = in.clip_position[1] / 1000.0;
-    return vec4<f32>(x_normalized, y_normalized, 1.0, 1.0);
+    let blue_channel = random_num_between_zero_and_one_1;
+    let red_channel = abs(-random_num_between_zero_and_one_1);
+
+    return vec4<f32>(red_channel, 0.0, blue_channel, 1.0);
 }
-
-
-// TEXTURE SHADER
-
-/*
-// Vertex shader
-
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coords: vec2<f32>,
-}
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) tex_coords: vec2<f32>,
-}
-
-@vertex
-fn vs_main(
-    model: VertexInput,
-) -> VertexOutput {
-    var out: VertexOutput;
-    out.tex_coords = model.tex_coords;
-    out.clip_position = vec4<f32>(model.position, 1.0);
-    return out;
-}
-// Fragment shader
-
-@group(0) @binding(0)
-var t_diffuse: texture_2d<f32>;
-@group(0) @binding(1)
-var s_diffuse: sampler;
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.tex_coords);
-}
-
-*/

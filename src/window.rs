@@ -56,9 +56,13 @@ impl ApplicationHandler<State> for Window {
 
         if now >= self.next_frame_time {
             if let Some(window) = &self.window {
+                println!("requesting redraw from about");
                 window.request_redraw();
             }
         } else {
+            // This WAITS until given time, then WAKES UP, then after waking it sees it has
+            // nothing to do so then goes to WAIT again, but when it waits the next frame time
+            // will be less than now so it triggers rerender
             event_loop.set_control_flow(ControlFlow::WaitUntil(self.next_frame_time));
         }
     }
@@ -79,10 +83,6 @@ impl ApplicationHandler<State> for Window {
                 graphics.resize(size.width, size.height);
             }
             WindowEvent::RedrawRequested => {
-                if Instant::now() < self.next_frame_time {
-                    return;
-                }
-
                 graphics.update();
                 println!("rerender");
 
