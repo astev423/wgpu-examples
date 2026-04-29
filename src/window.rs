@@ -56,7 +56,6 @@ impl ApplicationHandler<State> for Window {
 
         if now >= self.next_frame_time {
             if let Some(window) = &self.window {
-                println!("requesting redraw from about");
                 window.request_redraw();
             }
         } else {
@@ -84,7 +83,6 @@ impl ApplicationHandler<State> for Window {
             }
             WindowEvent::RedrawRequested => {
                 graphics.update();
-                println!("rerender");
 
                 if let Err(e) = graphics.render() {
                     log::error!("{e}");
