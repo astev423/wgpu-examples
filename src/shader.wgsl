@@ -42,10 +42,21 @@ fn vs_main(
     return out;
 }
 
+const SHALLOW_WATER_COLOR = vec3(0.0, 0.9, 0.8);
+const DEEP_WATER_COLOR = vec3(0.01, 0.05, 0.2);
+
 // Fragment shader runs for each pixel, GPU already decided color for pixel by interpolation,
 // but we get to decide final color here, each user defined value in the vertex struct
 // is then interpolated here for each fragment/pixel
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(colors.r, colors.g, colors.b, 1.0);
+    var final_color = DEEP_WATER_COLOR;
+
+    if in.clip_position.y < 450 {
+        final_color = vec3(0.1, 0.2, 0.3);
+    } else if in.clip_position.y < 500 {
+        final_color = SHALLOW_WATER_COLOR;
+    }
+
+    return vec4<f32>(final_color, 1.0);
 }
