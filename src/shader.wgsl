@@ -42,7 +42,7 @@ fn vs_main(
     return out;
 }
 
-const SHALLOW_WATER_COLOR = vec3(0.0, 0.9, 0.8);
+const SHALLOW_WATER_COLOR = vec3(0.01, 0.05, 0.5);
 const DEEP_WATER_COLOR = vec3(0.01, 0.05, 0.2);
 
 // Fragment shader runs for each pixel, GPU already decided color for pixel by interpolation,
@@ -50,13 +50,19 @@ const DEEP_WATER_COLOR = vec3(0.01, 0.05, 0.2);
 // is then interpolated here for each fragment/pixel
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var final_color = DEEP_WATER_COLOR;
+    let x = in.clip_position.x;
+    let y = in.clip_position.y;
 
-    if in.clip_position.y < 450 {
-        final_color = vec3(0.1, 0.2, 0.3);
-    } else if in.clip_position.y < 500 {
-        final_color = SHALLOW_WATER_COLOR;
+    let height_limit_for_x = (sin(x * 0.1 - (colors.r * 5)) * 10) + 300;
+    if y < height_limit_for_x {
+        return vec4<f32>(0.1, 0.2, 0.3, 1.0);
     }
+
+    let shallow_y = 350.0;
+    let deep_y = 400.0;
+    let t = smoothstep(shallow_y, deep_y, y);
+
+    let final_color = mix(SHALLOW_WATER_COLOR, DEEP_WATER_COLOR, t);
 
     return vec4<f32>(final_color, 1.0);
 }
