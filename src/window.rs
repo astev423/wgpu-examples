@@ -12,7 +12,7 @@ use winit::{
 
 use crate::gpu_pipeline::State;
 
-const FPS: u64 = 3;
+const FPS: u64 = 30;
 const FRAME_DURATION: Duration = Duration::from_nanos(1_000_000_000 / FPS);
 
 pub struct Window {

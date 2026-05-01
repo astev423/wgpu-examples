@@ -1,4 +1,4 @@
-use std::{iter, sync::Arc};
+use std::{iter, sync::Arc, time::Instant};
 
 use rand::random;
 use wgpu::util::DeviceExt;
@@ -14,9 +14,11 @@ pub struct State {
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
-    uniform_buffer: wgpu::Buffer,
-    uniform_bind_group: wgpu::BindGroup,
+    random_colors_buffer: wgpu::Buffer,
+    time_buffer: wgpu::Buffer,
+    water_bind_group: wgpu::BindGroup,
     num_vertices: u32,
+    start_time: Instant,
 }
 
 impl State {
@@ -86,32 +88,56 @@ impl State {
 
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
-        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("time_buffer"),
+        let random_colors_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("random_colors_buffer"),
             size: 12,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("time_bind_group_layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
+        let time_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("random_colors_buffer"),
+            size: 4,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("water_bind_group_layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        let water_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("time_bind_group"),
             layout: &bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uniform_buffer.as_entire_binding(),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: random_colors_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: time_buffer.as_entire_binding(),
+                },
+            ],
         });
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -172,9 +198,11 @@ impl State {
             config,
             render_pipeline,
             vertex_buffer,
-            uniform_buffer,
-            uniform_bind_group,
+            random_colors_buffer,
+            time_buffer,
+            water_bind_group,
             num_vertices: VERTICES.len() as u32,
+            start_time: Instant::now(),
         })
     }
 
@@ -260,7 +288,7 @@ impl State {
         let random_num_between_zero_and_one_2: f32 = random();
         let random_num_between_zero_and_one_3: f32 = random();
         self.queue.write_buffer(
-            &self.uniform_buffer,
+            &self.random_colors_buffer,
             0,
             bytemuck::cast_slice(&[
                 random_num_between_zero_and_one_1,
@@ -268,11 +296,17 @@ impl State {
                 random_num_between_zero_and_one_3,
             ]),
         );
+        let time_since_start = self.start_time.elapsed().as_secs_f32();
+        self.queue.write_buffer(
+            &self.time_buffer,
+            0,
+            bytemuck::cast_slice(&[time_since_start]),
+        );
 
         // Set the pipeline to render and tell wgpu to draw something with 3 vertices and 1 instance
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        render_pass.set_bind_group(0, &self.water_bind_group, &[]);
         // If we were using index buffers we would use draw_indexed instead of draw here
         render_pass.draw(0..self.num_vertices, 0..1);
 
