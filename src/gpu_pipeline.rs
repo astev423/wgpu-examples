@@ -1,10 +1,9 @@
-use std::{iter, sync::Arc, time::Instant};
+use std::{iter, sync::Arc};
 
-use rand::random;
-use wgpu::util::DeviceExt;
+use anyhow::anyhow;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
-use crate::vertices::{VERTICES, Vertex};
+use crate::art::waves::waves::Waves;
 
 // State manages wgpu stuff
 pub struct State {
@@ -12,13 +11,9 @@ pub struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    random_colors_buffer: wgpu::Buffer,
-    time_buffer: wgpu::Buffer,
-    water_bind_group: wgpu::BindGroup,
-    num_vertices: u32,
-    start_time: Instant,
+    waves: Waves,
+    shader_index: u32,
+    total_shaders: u32,
 }
 
 impl State {
@@ -86,123 +81,17 @@ impl State {
             view_formats: vec![],
         };
 
-        let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
-
-        let random_colors_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("random_colors_buffer"),
-            size: 12,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let time_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("random_colors_buffer"),
-            size: 4,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("water_bind_group_layout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                },
-            ],
-        });
-        let water_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("time_bind_group"),
-            layout: &bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: random_colors_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: time_buffer.as_entire_binding(),
-                },
-            ],
-        });
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[Some(&bind_group_layout)],
-                immediate_size: 0,
-            });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            // This tells wgpu to assemble triangles from the vertices
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview_mask: None,
-            cache: None,
-        });
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        // Structs for displaying different shaders
+        let waves = Waves::new(&device, &config);
 
         Ok(Self {
             surface,
             device,
             queue,
             config,
-            render_pipeline,
-            vertex_buffer,
-            random_colors_buffer,
-            time_buffer,
-            water_bind_group,
-            num_vertices: VERTICES.len() as u32,
-            start_time: Instant::now(),
+            waves,
+            shader_index: 0,
+            total_shaders: 1,
         })
     }
 
@@ -215,14 +104,8 @@ impl State {
         }
     }
 
-    pub fn update(&mut self) {}
-
     // This runs everytime window manage calls .render
     pub fn render(&mut self) -> anyhow::Result<()> {
-        // This delivers WindowEvent::requestredraw to window manager which then
-        // runs the window_event function I defined which then calls this render, for infinite loop
-        //self.window.request_redraw();
-
         // We can't render unless the surface is configured
         if self.surface.get_configuration().is_none() {
             return Ok(());
@@ -284,31 +167,14 @@ impl State {
             multiview_mask: None,
         });
 
-        let random_num_between_zero_and_one_1: f32 = random();
-        let random_num_between_zero_and_one_2: f32 = random();
-        let random_num_between_zero_and_one_3: f32 = random();
-        self.queue.write_buffer(
-            &self.random_colors_buffer,
-            0,
-            bytemuck::cast_slice(&[
-                random_num_between_zero_and_one_1,
-                random_num_between_zero_and_one_2,
-                random_num_between_zero_and_one_3,
-            ]),
-        );
-        let time_since_start = self.start_time.elapsed().as_secs_f32();
-        self.queue.write_buffer(
-            &self.time_buffer,
-            0,
-            bytemuck::cast_slice(&[time_since_start]),
-        );
-
-        // Set the pipeline to render and tell wgpu to draw something with 3 vertices and 1 instance
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        render_pass.set_bind_group(0, &self.water_bind_group, &[]);
-        // If we were using index buffers we would use draw_indexed instead of draw here
-        render_pass.draw(0..self.num_vertices, 0..1);
+        // We must get the binded resources, render pipeline, draw call, and vertices for shader
+        match self.shader_index {
+            0 => {
+                self.waves
+                    .submit_wave_rendering_data(&mut render_pass, &self.queue);
+            }
+            _ => return Err(anyhow!("Shader index too low/high")),
+        }
 
         drop(render_pass);
 
@@ -321,6 +187,22 @@ impl State {
     pub fn handle_key(&mut self, event_loop: &ActiveEventLoop, code: KeyCode, is_pressed: bool) {
         match (code, is_pressed) {
             (KeyCode::Escape, true) => event_loop.exit(),
+            (KeyCode::ArrowLeft, true) => {
+                if self.shader_index == 0 {
+                    println!("No previous shaders");
+                    return;
+                }
+
+                self.shader_index -= 1;
+            }
+            (KeyCode::ArrowRight, true) => {
+                if self.shader_index + 1 >= self.total_shaders {
+                    println!("No shaders next");
+                    return;
+                }
+
+                self.shader_index += 1;
+            }
             _ => {}
         }
     }

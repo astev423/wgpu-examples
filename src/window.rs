@@ -12,7 +12,7 @@ use winit::{
 
 use crate::gpu_pipeline::State;
 
-const FPS: u64 = 30;
+const FPS: u64 = 60;
 const FRAME_DURATION: Duration = Duration::from_nanos(1_000_000_000 / FPS);
 
 pub struct Window {
@@ -82,8 +82,6 @@ impl ApplicationHandler<State> for Window {
                 graphics.resize(size.width, size.height);
             }
             WindowEvent::RedrawRequested => {
-                graphics.update();
-
                 if let Err(e) = graphics.render() {
                     log::error!("{e}");
                     event_loop.exit();

@@ -7,7 +7,6 @@
 struct VertexInput {
     // Whatever is sent to shader location 0 is pos and 1 color
     @location(0) position: vec3<f32>,
-    @location(1) color: vec3<f32>,
 };
 
 // The clip position is what the gpu used and is required, the other fields are for me to use
@@ -19,16 +18,7 @@ struct VertexOutput {
 // Var uniform lets gpu know this is in read only access space and is global
 // In wgpu, every @binding declared in your shader must have a corresponding entry in
 // the BindGroupLayout and BindGroup. Layout defines interface, bind group defines data
-struct RandomColors {
-    r: f32,
-    g: f32,
-    b: f32,
-};
-
 @group(0) @binding(0)
-var<uniform> colors: RandomColors;
-
-@group(0) @binding(1)
 var<uniform> time: f32;
 
 // Vertex shader runs for each vertex we give in the draw, every 3 vertices it makes a triangle
@@ -38,7 +28,6 @@ fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.color = model.color;
     // GPU converts clip space to pixel coords
     out.pixel_position = vec4<f32>(model.position, 1.0);
     return out;
