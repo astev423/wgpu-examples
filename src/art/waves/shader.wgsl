@@ -40,7 +40,7 @@ fn vs_main(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     const WAVE_HOR_SPEED = 5;
     const WAVE_VER_SPEED = 2;
-    const WAVE_AMPLITUDE = 10;
+    const WAVE_AMPLITUDE = 4;
     const WAVELENGTH = 10;
     const MAGNITUDE_OF_UPS_AND_DOWNS = 20;
     const SHALLOW_WATER_COLOR = vec3(0.01, 0.05, 0.95);
@@ -50,7 +50,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let y = in.pixel_position.y;
     let wave_height_offset = (sin(time * WAVE_VER_SPEED) * MAGNITUDE_OF_UPS_AND_DOWNS) + 300;
     let wave_right_shift = time * WAVE_HOR_SPEED;
-    let height_limit_for_x = (sin(x / WAVELENGTH - wave_right_shift) * WAVE_AMPLITUDE) + wave_height_offset;
+    let wave2 = sin(x / 5.0 - time * 3.0) * 3.0;
+    let wave3 = sin(x / 8.0 - time * 2.0) * 4.5;
+    let height_limit_for_x = (sin(x / WAVELENGTH - wave_right_shift) * WAVE_AMPLITUDE) + wave2 + wave3 + wave_height_offset;
 
     if y < height_limit_for_x {
         return vec4<f32>(0.1, 0.2, 0.3, 1.0);

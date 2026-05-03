@@ -7,7 +7,7 @@ use wgpu::{
 
 use crate::art::vertex::Vertex;
 
-pub struct Waves {
+pub struct WaterSurface {
     creation_time: Instant,
     time_buffer: Buffer,
     vertex_buffer: Buffer,
@@ -15,8 +15,8 @@ pub struct Waves {
     bind_group: BindGroup,
 }
 
-impl Waves {
-    pub fn new(device: &Device, config: &SurfaceConfiguration) -> Waves {
+impl WaterSurface {
+    pub fn new(device: &Device, config: &SurfaceConfiguration) -> WaterSurface {
         let shader = device.create_shader_module(wgpu::include_wgsl!("shader.wgsl"));
 
         let time_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -26,7 +26,7 @@ impl Waves {
             mapped_at_creation: false,
         });
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("water_bind_group_layout"),
+            label: Some("water_surface_bind_group_layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
@@ -48,12 +48,12 @@ impl Waves {
         });
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Water Render Pipeline Layout"),
+                label: Some("Water surface pipeline layout"),
                 bind_group_layouts: &[Some(&bind_group_layout)],
                 immediate_size: 0,
             });
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Water Render Pipeline"),
+            label: Some("Water surface render pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -71,7 +71,6 @@ impl Waves {
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
-            // This tells wgpu to assemble triangles from the vertices
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
@@ -92,11 +91,11 @@ impl Waves {
         });
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(WAVE_VERTICES),
+            contents: bytemuck::cast_slice(WATER_SURFACE_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        Waves {
+        WaterSurface {
             creation_time: Instant::now(),
             time_buffer,
             vertex_buffer,
@@ -113,20 +112,16 @@ impl Waves {
             bytemuck::cast_slice(&[time_since_creation]),
         );
 
-        // Set the pipeline to render and tell wgpu to draw something with 3 vertices and 1 instance
-        // Submit commands to render pass which is a recording session in command encoder
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_bind_group(0, &self.bind_group, &[]);
-        // If we were using index buffers we would use draw_indexed instead of draw here
-        render_pass.draw(0..WAVE_VERTICES.len() as u32, 0..1);
+        render_pass.draw(0..WATER_SURFACE_VERTICES.len() as u32, 0..1);
     }
 }
 
-// These will be turned into a single buffer that GPU can loop over
-const WAVE_VERTICES: &[Vertex] = &[
+const WATER_SURFACE_VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-1.0, 0.7, 0.0],
+        position: [-1.0, 1.0, 0.0],
     },
     Vertex {
         position: [-1.0, -1.0, 0.0],
@@ -134,14 +129,13 @@ const WAVE_VERTICES: &[Vertex] = &[
     Vertex {
         position: [1.0, -1.0, 0.0],
     },
-    // Second triangle
     Vertex {
-        position: [-1.0, 0.7, 0.0],
+        position: [-1.0, 1.0, 0.0],
     },
     Vertex {
         position: [1.0, -1.0, 0.0],
     },
     Vertex {
-        position: [1.0, 0.7, 0.0],
+        position: [1.0, 1.0, 0.0],
     },
 ];

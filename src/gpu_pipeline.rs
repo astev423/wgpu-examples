@@ -1,9 +1,9 @@
+use anyhow::anyhow;
 use std::{iter, sync::Arc};
 
-use anyhow::anyhow;
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
-use crate::art::waves::waves::Waves;
+use crate::art::{water_surface::water_surface::WaterSurface, waves::waves::Waves};
 
 // State manages wgpu stuff
 pub struct State {
@@ -11,9 +11,10 @@ pub struct State {
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
-    waves: Waves,
     shader_index: u32,
     total_shaders: u32,
+    waves: Waves,
+    water_surface: WaterSurface,
 }
 
 impl State {
@@ -83,15 +84,17 @@ impl State {
 
         // Structs for displaying different shaders
         let waves = Waves::new(&device, &config);
+        let water_surface = WaterSurface::new(&device, &config);
 
         Ok(Self {
             surface,
             device,
             queue,
             config,
-            waves,
             shader_index: 0,
-            total_shaders: 1,
+            total_shaders: 2,
+            waves,
+            water_surface,
         })
     }
 
@@ -171,6 +174,10 @@ impl State {
         match self.shader_index {
             0 => {
                 self.waves
+                    .submit_wave_rendering_data(&mut render_pass, &self.queue);
+            }
+            1 => {
+                self.water_surface
                     .submit_wave_rendering_data(&mut render_pass, &self.queue);
             }
             _ => return Err(anyhow!("Shader index too low/high")),
