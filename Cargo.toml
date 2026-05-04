@@ -14,3 +14,21 @@ bytemuck = { version = "1.24.0", features = ["derive"] }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
 cgmath = "0.18"
 rand = "0.10.1"
+
+[profile.dev]
+opt-level = 0
+debug = 0
+incremental = true
+codegen-units = 256
+lto = "off"
+panic = "abort"
+
+[profile.dev.package."*"]
+opt-level = 0
+debug = 0
+codegen-units = 256
+
+[profile.dev.build-override]
+opt-level = 0
+debug = 0
+codegen-units = 256
