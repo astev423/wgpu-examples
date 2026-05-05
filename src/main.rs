@@ -1,11 +1,5 @@
 fn main() {
     env_logger::init();
-    /*
-    draw_fire()
-
-    draw_magma()
-    draw_plasma()
-    draw_super_nova()
-     */
+    println!("Press the left/right arrow keys to see other shaders");
     graphics::app::run().unwrap();
 }
