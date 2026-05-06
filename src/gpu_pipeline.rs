@@ -4,7 +4,11 @@ use wgpu::util::DeviceExt;
 
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
-use crate::art::{water_surface::water_surface::WaterSurface, waves::waves::Waves};
+use crate::art::{
+    cube::cube::Cube, water_surface::water_surface::WaterSurface, waves::waves::Waves,
+};
+
+const TOTAL_SHADERS: u32 = 3;
 
 // State manages wgpu stuff
 pub struct State {
@@ -13,9 +17,9 @@ pub struct State {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     shader_index: u32,
-    total_shaders: u32,
     waves: Waves,
     water_surface: WaterSurface,
+    cube: Cube,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -135,6 +139,7 @@ impl State {
         // Structs for displaying different shaders
         let waves = Waves::new(&device, &config, &camera_bind_group_layout);
         let water_surface = WaterSurface::new(&device, &config);
+        let cube = Cube::new(&device, &config, &camera_bind_group_layout);
 
         Ok(Self {
             surface,
@@ -142,9 +147,9 @@ impl State {
             queue,
             config,
             shader_index: 0,
-            total_shaders: 2,
             waves,
             water_surface,
+            cube,
             camera,
             camera_uniform,
             camera_buffer,
@@ -238,6 +243,10 @@ impl State {
                 self.water_surface
                     .submit_wave_rendering_data(&mut render_pass, &self.queue);
             }
+            2 => {
+                self.cube
+                    .submit_cube_rendering_data(&mut render_pass, &self.camera_bind_group);
+            }
             _ => return Err(anyhow!("Shader index too low/high")),
         }
 
@@ -271,7 +280,7 @@ impl State {
                 self.shader_index -= 1;
             }
             (KeyCode::ArrowRight, true) => {
-                if self.shader_index + 1 >= self.total_shaders {
+                if self.shader_index + 1 >= TOTAL_SHADERS {
                     println!("No shaders next");
                     return;
                 }
