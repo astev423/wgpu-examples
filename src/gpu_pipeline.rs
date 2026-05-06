@@ -1,11 +1,12 @@
 use anyhow::anyhow;
+use cgmath::{Deg, Matrix3};
 use std::{iter, sync::Arc};
 use wgpu::util::DeviceExt;
 
 use winit::{event_loop::ActiveEventLoop, keyboard::KeyCode, window::Window};
 
 use crate::art::{
-    cube::cube::Cube, water_surface::water_surface::WaterSurface, waves::waves::Waves,
+    sphere::sphere::Sphere, water_surface::water_surface::WaterSurface, waves::waves::Waves,
 };
 
 const TOTAL_SHADERS: u32 = 3;
@@ -19,7 +20,7 @@ pub struct State {
     shader_index: u32,
     waves: Waves,
     water_surface: WaterSurface,
-    cube: Cube,
+    sphere: Sphere,
     camera: Camera,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -139,7 +140,7 @@ impl State {
         // Structs for displaying different shaders
         let waves = Waves::new(&device, &config, &camera_bind_group_layout);
         let water_surface = WaterSurface::new(&device, &config);
-        let cube = Cube::new(&device, &config, &camera_bind_group_layout);
+        let sphere = Sphere::new(&device, &config, &camera_bind_group_layout);
 
         Ok(Self {
             surface,
@@ -149,7 +150,7 @@ impl State {
             shader_index: 0,
             waves,
             water_surface,
-            cube,
+            sphere,
             camera,
             camera_uniform,
             camera_buffer,
@@ -244,8 +245,8 @@ impl State {
                     .submit_wave_rendering_data(&mut render_pass, &self.queue);
             }
             2 => {
-                self.cube
-                    .submit_cube_rendering_data(&mut render_pass, &self.camera_bind_group);
+                self.sphere
+                    .submit_sphere_rendering_data(&mut render_pass, &self.camera_bind_group);
             }
             _ => return Err(anyhow!("Shader index too low/high")),
         }
@@ -355,6 +356,10 @@ struct CameraController {
     is_backward_pressed: bool,
     is_left_pressed: bool,
     is_right_pressed: bool,
+    is_up_pressed: bool,
+    is_down_pressed: bool,
+    is_orbit_pressed: bool,
+    is_orbit_up_pressed: bool,
 }
 
 impl CameraController {
@@ -365,6 +370,10 @@ impl CameraController {
             is_backward_pressed: false,
             is_left_pressed: false,
             is_right_pressed: false,
+            is_up_pressed: false,
+            is_down_pressed: false,
+            is_orbit_pressed: false,
+            is_orbit_up_pressed: false,
         }
     }
 
@@ -386,6 +395,22 @@ impl CameraController {
                 self.is_right_pressed = is_pressed;
                 true
             }
+            KeyCode::Space => {
+                self.is_up_pressed = is_pressed;
+                true
+            }
+            KeyCode::ShiftLeft => {
+                self.is_down_pressed = is_pressed;
+                true
+            }
+            KeyCode::KeyQ => {
+                self.is_orbit_pressed = is_pressed;
+                true
+            }
+            KeyCode::KeyE => {
+                self.is_orbit_up_pressed = is_pressed;
+                true
+            }
             _ => false,
         }
     }
@@ -396,8 +421,7 @@ impl CameraController {
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude();
 
-        // Prevents glitching when the camera gets too close to the
-        // center of the scene.
+        // Forward/Backward
         if self.is_forward_pressed && forward_mag > self.speed {
             camera.eye += forward_norm * self.speed;
         }
@@ -405,20 +429,47 @@ impl CameraController {
             camera.eye -= forward_norm * self.speed;
         }
 
+        // Strafe Left/Right
         let right = forward_norm.cross(camera.up);
-
-        // Redo radius calc in case the forward/backward is pressed.
         let forward = camera.target - camera.eye;
         let forward_mag = forward.magnitude();
 
         if self.is_right_pressed {
-            // Rescale the distance between the target and the eye so
-            // that it doesn't change. The eye, therefore, still
-            // lies on the circle made by the target and eye.
             camera.eye = camera.target - (forward + right * self.speed).normalize() * forward_mag;
         }
         if self.is_left_pressed {
             camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
+        }
+
+        // Vertical Movement (Up/Down)
+        if self.is_up_pressed {
+            camera.eye.y += self.speed;
+            camera.target.y += self.speed;
+        }
+        if self.is_down_pressed {
+            camera.eye.y -= self.speed;
+            camera.target.y -= self.speed;
+        }
+
+        if self.is_orbit_pressed || self.is_orbit_up_pressed {
+            let rel_pos = camera.eye - camera.target;
+
+            // If 'Q' is pressed, use positive speed (Down).
+            // If 'E' is pressed, use negative speed (Up).
+            let angle = if self.is_orbit_pressed {
+                self.speed * 10.0
+            } else {
+                -self.speed * 10.0
+            };
+
+            let rotation = Matrix3::from_axis_angle(right, Deg(angle));
+            let new_rel_pos = rotation * rel_pos;
+            let new_dir = new_rel_pos.normalize();
+
+            // Safety check to prevent gimbal lock / flipping
+            if new_dir.dot(camera.up).abs() < 0.98 {
+                camera.eye = camera.target + new_rel_pos;
+            }
         }
     }
 }
