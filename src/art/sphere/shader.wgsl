@@ -32,7 +32,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let diffuse = max(dot(normal, light_dir), 0.0);
     let ambient = 0.2;
 
-    let brightness = ambient + diffuse * 0.8;
+    let final_color = ambient + diffuse * 0.8;
 
-    return vec4<f32>(0.0, 0.0, brightness, 1.0);
+    return vec4<f32>(0.0, 0.0, final_color, 1.0);
 }
